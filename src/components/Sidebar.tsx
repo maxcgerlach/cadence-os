@@ -1,11 +1,15 @@
 import { open } from "@tauri-apps/plugin-dialog";
 import { FolderPlus, ListMusic, Tags, Loader2 } from "lucide-react";
 import { useLibrary } from "../context/LibraryContext";
-import { useScanDirectory } from "../hooks/useCadence";
+import { useScanDirectory, useSamples } from "../hooks/useCadence";
 
 export function Sidebar() {
   const { view, setView } = useLibrary();
   const scanDirectory = useScanDirectory();
+  // Derived from the live samples query rather than the last scan's result,
+  // so it stays accurate when the filesystem watcher re-scans in the
+  // background (a manual click isn't the only thing that can change it).
+  const { data: samples = [] } = useSamples("");
 
   async function handleAddFolder() {
     const dirPath = await open({ directory: true, multiple: false });
@@ -29,10 +33,8 @@ export function Sidebar() {
         Add Folder to Index
       </button>
 
-      {scanDirectory.data && (
-        <p className="sidebar__scan-result">
-          Indexed {scanDirectory.data.inserted} of {scanDirectory.data.scanned} found
-        </p>
+      {samples.length > 0 && (
+        <p className="sidebar__scan-result">{samples.length} samples indexed</p>
       )}
       {scanDirectory.isError && (
         <p className="sidebar__scan-error">{String(scanDirectory.error)}</p>
