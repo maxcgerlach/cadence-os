@@ -22,3 +22,11 @@ export interface ScanResult {
   scanned: number;
   inserted: number;
 }
+
+export interface Project {
+  id: number;
+  file_path: string;
+  file_name: string;
+  tempo: number | null;
+  created_at: string;
+}

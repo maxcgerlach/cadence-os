@@ -174,6 +174,35 @@ body,
   gap: 8px;
 }
 
+.project-table__header,
+.project-table__row {
+  display: grid;
+  grid-template-columns: 1fr 80px;
+  align-items: center;
+  padding: 0 12px;
+  gap: 8px;
+}
+
+.project-table__header {
+  height: 32px;
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #8a8a90;
+  border-bottom: 1px solid #eaeaec;
+}
+
+.project-table__row {
+  font-size: 13px;
+  border-bottom: 1px solid #f2f2f3;
+}
+
+.project-table__row:hover {
+  background-color: #f7f7f8;
+}
+
 .sample-table__header {
   height: 32px;
   flex-shrink: 0;

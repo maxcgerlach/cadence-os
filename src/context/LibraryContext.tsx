@@ -1,6 +1,6 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 
-export type LibraryView = "all-samples" | "virtual-tags";
+export type LibraryView = "all-samples" | "virtual-tags" | "projects";
 
 interface LibraryContextValue {
   view: LibraryView;

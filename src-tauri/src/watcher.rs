@@ -1,4 +1,4 @@
-use crate::{db, indexer};
+use crate::{db, indexer, projects};
 use notify_debouncer_mini::notify::RecursiveMode;
 use notify_debouncer_mini::{new_debouncer, Debouncer};
 use rusqlite::Connection;
@@ -13,7 +13,7 @@ use tauri::{AppHandle, Emitter};
 /// re-scan instead of one per file.
 const DEBOUNCE: Duration = Duration::from_secs(2);
 
-pub const SAMPLES_UPDATED_EVENT: &str = "samples-updated";
+pub const LIBRARY_UPDATED_EVENT: &str = "library-updated";
 
 pub struct WatcherState(Mutex<Debouncer<notify_debouncer_mini::notify::RecommendedWatcher>>);
 
@@ -30,10 +30,10 @@ impl WatcherState {
 }
 
 /// Starts watching every previously-indexed folder for filesystem changes.
-/// On any change, re-scans all watched folders (cheap: unchanged files are
-/// no-ops via the same upsert `scan_directory` uses) and emits
-/// `SAMPLES_UPDATED_EVENT` so the frontend can refetch without the user
-/// having to manually re-scan.
+/// On any change, re-scans all watched folders for both audio samples and
+/// project files (cheap: unchanged files are no-ops via the same upsert
+/// `scan_directory` uses) and emits `LIBRARY_UPDATED_EVENT` so the frontend
+/// can refetch without the user having to manually re-scan.
 pub fn init(app_handle: AppHandle, conn: Arc<Mutex<Connection>>) -> WatcherState {
     let (tx, rx) = channel();
     let mut debouncer = new_debouncer(DEBOUNCE, tx).expect("failed to create file watcher");
@@ -62,12 +62,14 @@ pub fn init(app_handle: AppHandle, conn: Arc<Mutex<Connection>>) -> WatcherState
 
             for folder in folders {
                 let discovered = indexer::discover_files(&folder);
+                let discovered_projects = projects::discover_projects(&folder);
                 if let Ok(guard) = conn.lock() {
                     let _ = indexer::insert_batch(&guard, &discovered);
+                    let _ = projects::insert_batch(&guard, &discovered_projects);
                 }
             }
 
-            let _ = app_handle.emit(SAMPLES_UPDATED_EVENT, ());
+            let _ = app_handle.emit(LIBRARY_UPDATED_EVENT, ());
         }
     });
 

@@ -36,7 +36,16 @@ CREATE TABLE IF NOT EXISTS watched_folders (
     added_at   TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS projects (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    file_path  TEXT NOT NULL UNIQUE,
+    file_name  TEXT NOT NULL,
+    tempo      REAL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE INDEX IF NOT EXISTS idx_samples_file_name ON samples(file_name);
+CREATE INDEX IF NOT EXISTS idx_projects_file_name ON projects(file_name);
 ";
 
 /// Opens (creating if needed) `cadence.db` in the app's data directory and

@@ -1,6 +1,8 @@
 mod db;
+mod flp;
 mod indexer;
 mod metadata;
+mod projects;
 mod samples;
 mod watcher;
 
@@ -26,6 +28,7 @@ pub fn run() {
             samples::create_tag,
             samples::assign_tag,
             samples::remove_tag,
+            projects::list_projects,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
