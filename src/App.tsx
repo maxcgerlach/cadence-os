@@ -8,6 +8,7 @@ import { CreateTagForm } from "./components/CreateTagForm";
 import { TagSampleList } from "./components/TagSampleList";
 import { useLibrary } from "./context/LibraryContext";
 import { useSamples, useVirtualTags } from "./hooks/useCadence";
+import { useLiveSampleUpdates } from "./hooks/useLiveSampleUpdates";
 
 function AllSamplesView() {
   const { search, selectedSampleId, setSelectedSampleId } = useLibrary();
@@ -74,6 +75,7 @@ function VirtualTagsView() {
 
 function App() {
   const { view } = useLibrary();
+  useLiveSampleUpdates();
 
   return (
     <div className="app-shell">
