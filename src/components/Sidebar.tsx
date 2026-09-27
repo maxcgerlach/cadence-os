@@ -1,5 +1,5 @@
 import { open } from "@tauri-apps/plugin-dialog";
-import { FolderPlus, ListMusic, Tags, Loader2 } from "lucide-react";
+import { FolderPlus, ListMusic, Tags, Loader2, FolderKanban } from "lucide-react";
 import { useLibrary } from "../context/LibraryContext";
 import { useScanDirectory, useSamples } from "../hooks/useCadence";
 
@@ -54,6 +54,13 @@ export function Sidebar() {
         >
           <Tags size={16} />
           Virtual Tags
+        </button>
+        <button
+          className={view === "projects" ? "sidebar__nav-item active" : "sidebar__nav-item"}
+          onClick={() => setView("projects")}
+        >
+          <FolderKanban size={16} />
+          Projects
         </button>
       </nav>
     </aside>

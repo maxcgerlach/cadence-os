@@ -6,8 +6,9 @@ import { SampleTable } from "./components/SampleTable";
 import { SamplePreview } from "./components/SamplePreview";
 import { CreateTagForm } from "./components/CreateTagForm";
 import { TagSampleList } from "./components/TagSampleList";
+import { ProjectTable } from "./components/ProjectTable";
 import { useLibrary } from "./context/LibraryContext";
-import { useSamples, useVirtualTags } from "./hooks/useCadence";
+import { useProjects, useSamples, useVirtualTags } from "./hooks/useCadence";
 import { useLiveSampleUpdates } from "./hooks/useLiveSampleUpdates";
 
 function AllSamplesView() {
@@ -73,6 +74,11 @@ function VirtualTagsView() {
   );
 }
 
+function ProjectsView() {
+  const { data: projects = [], isLoading } = useProjects();
+  return <ProjectTable projects={projects} isLoading={isLoading} />;
+}
+
 function App() {
   const { view } = useLibrary();
   useLiveSampleUpdates();
@@ -81,7 +87,9 @@ function App() {
     <div className="app-shell">
       <Sidebar />
       <main className="main-panel">
-        {view === "all-samples" ? <AllSamplesView /> : <VirtualTagsView />}
+        {view === "all-samples" && <AllSamplesView />}
+        {view === "virtual-tags" && <VirtualTagsView />}
+        {view === "projects" && <ProjectsView />}
       </main>
     </div>
   );

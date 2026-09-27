@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   assignTag,
   createTag,
+  listProjects,
   listSamples,
   listVirtualTags,
   removeTag,
@@ -22,6 +23,13 @@ export function useVirtualTags() {
   });
 }
 
+export function useProjects() {
+  return useQuery({
+    queryKey: ["projects"],
+    queryFn: listProjects,
+  });
+}
+
 export function useScanDirectory() {
   const queryClient = useQueryClient();
 
@@ -29,6 +37,7 @@ export function useScanDirectory() {
     mutationFn: scanDirectory,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["samples"] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
     },
   });
 }

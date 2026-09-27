@@ -1,5 +1,6 @@
 use crate::db::{self, DbState};
 use crate::metadata;
+use crate::projects;
 use crate::watcher::WatcherState;
 use rayon::prelude::*;
 use rusqlite::params;
@@ -83,27 +84,29 @@ pub(crate) fn discover_files(dir_path: &str) -> Vec<DiscoveredFile> {
         .collect::<Vec<_>>()
 }
 
-/// Scans a directory, inserts/updates samples, and registers it as a
-/// watched folder so the filesystem watcher picks up future changes to it
-/// even after this call returns (see `watcher::WatcherState::watch`).
+/// Scans a directory for both audio samples and FL Studio project files,
+/// inserts/updates both, and registers it as a watched folder so the
+/// filesystem watcher picks up future changes to it even after this call
+/// returns (see `watcher::WatcherState::watch`).
 #[tauri::command]
 pub async fn scan_directory(
     dir_path: String,
     db: State<'_, DbState>,
     watcher: State<'_, WatcherState>,
 ) -> Result<ScanResult, String> {
-    let discovered = tokio::task::spawn_blocking({
+    let (discovered, discovered_projects) = tokio::task::spawn_blocking({
         let dir_path = dir_path.clone();
-        move || discover_files(&dir_path)
+        move || (discover_files(&dir_path), projects::discover_projects(&dir_path))
     })
     .await
     .map_err(|e| format!("scan task failed: {e}"))?;
 
-    let scanned = discovered.len();
+    let scanned = discovered.len() + discovered_projects.len();
 
     let inserted = {
         let conn = db.0.lock().map_err(|e| format!("db lock poisoned: {e}"))?;
-        let inserted = insert_batch(&conn, &discovered).map_err(|e| e.to_string())?;
+        let mut inserted = insert_batch(&conn, &discovered).map_err(|e| e.to_string())?;
+        inserted += projects::insert_batch(&conn, &discovered_projects).map_err(|e| e.to_string())?;
         db::add_watched_folder(&conn, &dir_path).map_err(|e| e.to_string())?;
         inserted
     };
