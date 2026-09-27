@@ -1,3 +1,4 @@
+mod analysis;
 mod db;
 mod indexer;
 mod metadata;

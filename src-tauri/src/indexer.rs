@@ -1,3 +1,4 @@
+use crate::analysis;
 use crate::db::{self, DbState};
 use crate::metadata;
 use crate::watcher::WatcherState;
@@ -29,6 +30,8 @@ pub(crate) struct DiscoveredFile {
     duration_ms: Option<i64>,
     sample_rate: Option<i64>,
     channels: Option<i64>,
+    bpm: Option<f64>,
+    pitch_key: Option<String>,
 }
 
 fn is_audio_file(path: &Path) -> bool {
@@ -71,6 +74,10 @@ pub(crate) fn discover_files(dir_path: &str) -> Vec<DiscoveredFile> {
         .into_par_iter()
         .map(|p| {
             let probed = metadata::extract(Path::new(&p.file_path));
+            // Full decode + FFT analysis is far more expensive than the
+            // header-only probe above (bounded to MAX_ANALYSIS_SECONDS per
+            // file), but still parallelizes across files via rayon here.
+            let analyzed = analysis::analyze(Path::new(&p.file_path));
             DiscoveredFile {
                 file_path: p.file_path,
                 file_name: p.file_name,
@@ -78,6 +85,8 @@ pub(crate) fn discover_files(dir_path: &str) -> Vec<DiscoveredFile> {
                 duration_ms: probed.as_ref().map(|m| m.duration_ms),
                 sample_rate: probed.as_ref().map(|m| m.sample_rate),
                 channels: probed.as_ref().map(|m| m.channels),
+                bpm: analyzed.as_ref().and_then(|a| a.bpm),
+                pitch_key: analyzed.as_ref().and_then(|a| a.pitch_key.clone()),
             }
         })
         .collect::<Vec<_>>()
@@ -120,14 +129,27 @@ pub(crate) fn insert_batch(
     let mut inserted = 0;
     let tx = conn.unchecked_transaction()?;
     {
+        // Each column independently keeps its existing value if already set
+        // (COALESCE) and only takes the new scan's value if it was still
+        // NULL — so a rescan can backfill bpm/pitch_key on a row that
+        // already has duration_ms from an earlier scan, without ever
+        // clobbering a column that's already populated. The WHERE clause
+        // just skips rows where nothing is missing, so `inserted` still
+        // means "rows touched because something was still unknown".
         let mut stmt = tx.prepare(
-            "INSERT INTO samples (file_path, file_name, extension, duration_ms, sample_rate, channels)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+            "INSERT INTO samples (file_path, file_name, extension, duration_ms, sample_rate, channels, bpm, pitch_key)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
              ON CONFLICT(file_path) DO UPDATE SET
-                duration_ms = excluded.duration_ms,
-                sample_rate = excluded.sample_rate,
-                channels = excluded.channels
-             WHERE samples.duration_ms IS NULL",
+                duration_ms = COALESCE(samples.duration_ms, excluded.duration_ms),
+                sample_rate = COALESCE(samples.sample_rate, excluded.sample_rate),
+                channels = COALESCE(samples.channels, excluded.channels),
+                bpm = COALESCE(samples.bpm, excluded.bpm),
+                pitch_key = COALESCE(samples.pitch_key, excluded.pitch_key)
+             WHERE samples.duration_ms IS NULL
+                OR samples.sample_rate IS NULL
+                OR samples.channels IS NULL
+                OR samples.bpm IS NULL
+                OR samples.pitch_key IS NULL",
         )?;
         for file in files {
             inserted += stmt.execute(params![
@@ -137,6 +159,8 @@ pub(crate) fn insert_batch(
                 file.duration_ms,
                 file.sample_rate,
                 file.channels,
+                file.bpm,
+                file.pitch_key,
             ])?;
         }
     }
@@ -178,6 +202,16 @@ mod tests {
             duration_ms,
             sample_rate: duration_ms.map(|_| 44100),
             channels: duration_ms.map(|_| 1),
+            bpm: None,
+            pitch_key: None,
+        }
+    }
+
+    fn kick_with_analysis(path: &str, duration_ms: Option<i64>, bpm: Option<f64>, pitch_key: Option<&str>) -> DiscoveredFile {
+        DiscoveredFile {
+            bpm,
+            pitch_key: pitch_key.map(String::from),
+            ..kick(path, duration_ms)
         }
     }
 
@@ -226,9 +260,15 @@ mod tests {
     #[test]
     fn rescan_does_not_clobber_existing_metadata() {
         let conn = test_conn();
-        insert_batch(&conn, &[kick("/library/kick.wav", Some(500))]).unwrap();
+        // Fully populated row — nothing left to backfill.
+        insert_batch(
+            &conn,
+            &[kick_with_analysis("/library/kick.wav", Some(500), Some(128.0), Some("A min"))],
+        )
+        .unwrap();
         // Re-scan reports no metadata this time (shouldn't happen in practice,
-        // but the WHERE clause should still protect existing good data).
+        // but existing good data must survive, and since every column is
+        // already populated the row shouldn't even be touched).
         let inserted = insert_batch(&conn, &[kick("/library/kick.wav", None)]).unwrap();
         assert_eq!(inserted, 0);
 
@@ -236,6 +276,55 @@ mod tests {
             .query_row("SELECT duration_ms FROM samples WHERE file_path = ?1", ["/library/kick.wav"], |r| r.get(0))
             .unwrap();
         assert_eq!(duration, Some(500));
+    }
+
+    #[test]
+    fn rescan_backfills_bpm_and_key_even_when_duration_already_set() {
+        // Regression: rows indexed before bpm/pitch_key analysis existed
+        // already have duration_ms set, so a naive "only touch rows with
+        // duration_ms IS NULL" guard would permanently skip them.
+        let conn = test_conn();
+        insert_batch(&conn, &[kick("/library/kick.wav", Some(500))]).unwrap();
+
+        let inserted = insert_batch(
+            &conn,
+            &[kick_with_analysis("/library/kick.wav", Some(500), Some(128.0), Some("A min"))],
+        )
+        .unwrap();
+        assert_eq!(inserted, 1, "row with missing bpm/pitch_key should still be touched");
+
+        let (bpm, pitch_key): (Option<f64>, Option<String>) = conn
+            .query_row(
+                "SELECT bpm, pitch_key FROM samples WHERE file_path = ?1",
+                ["/library/kick.wav"],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(bpm, Some(128.0));
+        assert_eq!(pitch_key, Some("A min".to_string()));
+    }
+
+    #[test]
+    fn rescan_does_not_clobber_existing_bpm_and_key() {
+        let conn = test_conn();
+        insert_batch(
+            &conn,
+            &[kick_with_analysis("/library/kick.wav", Some(500), Some(128.0), Some("A min"))],
+        )
+        .unwrap();
+
+        // Re-scan yields no analysis this time; existing values must survive.
+        insert_batch(&conn, &[kick("/library/kick.wav", Some(500))]).unwrap();
+
+        let (bpm, pitch_key): (Option<f64>, Option<String>) = conn
+            .query_row(
+                "SELECT bpm, pitch_key FROM samples WHERE file_path = ?1",
+                ["/library/kick.wav"],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(bpm, Some(128.0));
+        assert_eq!(pitch_key, Some("A min".to_string()));
     }
 
     #[test]

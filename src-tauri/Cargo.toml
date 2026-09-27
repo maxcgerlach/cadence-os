@@ -29,4 +29,5 @@ rayon = "1"
 tokio = { version = "1", features = ["rt", "rt-multi-thread"] }
 symphonia = { version = "0.5", features = ["mp3", "flac", "wav"] }
 notify-debouncer-mini = "0.4"
+rustfft = "6"
 
