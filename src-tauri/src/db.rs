@@ -44,8 +44,19 @@ CREATE TABLE IF NOT EXISTS projects (
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS project_samples (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id    INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    raw_path      TEXT NOT NULL,
+    resolved_path TEXT,
+    file_name     TEXT NOT NULL,
+    is_factory    INTEGER NOT NULL DEFAULT 0,
+    UNIQUE(project_id, raw_path)
+);
+
 CREATE INDEX IF NOT EXISTS idx_samples_file_name ON samples(file_name);
 CREATE INDEX IF NOT EXISTS idx_projects_file_name ON projects(file_name);
+CREATE INDEX IF NOT EXISTS idx_project_samples_file_name ON project_samples(file_name COLLATE NOCASE);
 ";
 
 /// Opens (creating if needed) `cadence.db` in the app's data directory and

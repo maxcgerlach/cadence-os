@@ -68,6 +68,9 @@ pub fn init(app_handle: AppHandle, conn: Arc<Mutex<Connection>>) -> WatcherState
                     let _ = projects::insert_batch(&guard, &discovered_projects);
                 }
             }
+            if let Ok(guard) = conn.lock() {
+                let _ = projects::prune_stale(&guard);
+            }
 
             let _ = app_handle.emit(LIBRARY_UPDATED_EVENT, ());
         }

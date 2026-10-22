@@ -15,6 +15,7 @@ export function useLiveSampleUpdates() {
     const unlisten = listen("library-updated", () => {
       queryClient.invalidateQueries({ queryKey: ["samples"] });
       queryClient.invalidateQueries({ queryKey: ["projects"] });
+      queryClient.invalidateQueries({ queryKey: ["project-samples"] });
     });
 
     return () => {

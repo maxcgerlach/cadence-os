@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { Project, Sample, ScanResult, VirtualTag } from "../types/cadence";
+import type { Project, ProjectSample, Sample, ScanResult, VirtualTag } from "../types/cadence";
 
 export function listSamples(search: string): Promise<Sample[]> {
   return invoke("list_samples", { search: search.trim() === "" ? null : search });
@@ -27,4 +27,8 @@ export function removeTag(sampleId: number, tagId: number): Promise<void> {
 
 export function listProjects(): Promise<Project[]> {
   return invoke("list_projects");
+}
+
+export function listProjectSamples(projectId: number): Promise<ProjectSample[]> {
+  return invoke("list_project_samples", { projectId });
 }
