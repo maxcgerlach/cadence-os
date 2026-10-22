@@ -107,6 +107,7 @@ pub async fn scan_directory(
         let conn = db.0.lock().map_err(|e| format!("db lock poisoned: {e}"))?;
         let mut inserted = insert_batch(&conn, &discovered).map_err(|e| e.to_string())?;
         inserted += projects::insert_batch(&conn, &discovered_projects).map_err(|e| e.to_string())?;
+        projects::prune_stale(&conn).map_err(|e| e.to_string())?;
         db::add_watched_folder(&conn, &dir_path).map_err(|e| e.to_string())?;
         inserted
     };

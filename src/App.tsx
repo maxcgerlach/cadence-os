@@ -7,6 +7,7 @@ import { SamplePreview } from "./components/SamplePreview";
 import { CreateTagForm } from "./components/CreateTagForm";
 import { TagSampleList } from "./components/TagSampleList";
 import { ProjectTable } from "./components/ProjectTable";
+import { ProjectSamplesPanel } from "./components/ProjectSamplesPanel";
 import { useLibrary } from "./context/LibraryContext";
 import { useProjects, useSamples, useVirtualTags } from "./hooks/useCadence";
 import { useLiveSampleUpdates } from "./hooks/useLiveSampleUpdates";
@@ -76,7 +77,20 @@ function VirtualTagsView() {
 
 function ProjectsView() {
   const { data: projects = [], isLoading } = useProjects();
-  return <ProjectTable projects={projects} isLoading={isLoading} />;
+  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
+  const selectedProject = projects.find((p) => p.id === selectedProjectId) ?? null;
+
+  return (
+    <>
+      <ProjectTable
+        projects={projects}
+        isLoading={isLoading}
+        selectedProjectId={selectedProjectId}
+        onSelect={(project) => setSelectedProjectId(project.id)}
+      />
+      <ProjectSamplesPanel project={selectedProject} />
+    </>
+  );
 }
 
 function App() {

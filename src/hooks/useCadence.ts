@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   assignTag,
   createTag,
+  listProjectSamples,
   listProjects,
   listSamples,
   listVirtualTags,
@@ -30,6 +31,14 @@ export function useProjects() {
   });
 }
 
+export function useProjectSamples(projectId: number | null) {
+  return useQuery({
+    queryKey: ["project-samples", projectId],
+    queryFn: () => listProjectSamples(projectId as number),
+    enabled: projectId !== null,
+  });
+}
+
 export function useScanDirectory() {
   const queryClient = useQueryClient();
 
@@ -38,6 +47,7 @@ export function useScanDirectory() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["samples"] });
       queryClient.invalidateQueries({ queryKey: ["projects"] });
+      queryClient.invalidateQueries({ queryKey: ["project-samples"] });
     },
   });
 }

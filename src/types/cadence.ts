@@ -29,4 +29,17 @@ export interface Project {
   file_name: string;
   tempo: number | null;
   created_at: string;
+  sample_count: number;
+}
+
+export type SampleStatus = "factory" | "found" | "missing" | "unknown";
+
+export interface ProjectSample {
+  raw_path: string;
+  resolved_path: string | null;
+  file_name: string;
+  status: SampleStatus;
+  in_project_folder: boolean;
+  duplicate_paths: string[];
+  duplicate_conflict: boolean;
 }

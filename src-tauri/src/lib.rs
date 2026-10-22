@@ -29,6 +29,7 @@ pub fn run() {
             samples::assign_tag,
             samples::remove_tag,
             projects::list_projects,
+            projects::list_project_samples,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
